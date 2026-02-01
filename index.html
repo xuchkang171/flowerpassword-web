@@ -1,0 +1,126 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flower Password (Offline Preserved)</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; background: #f0f2f5; }
+        .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; margin-top: 0; font-size: 24px; display: flex; align-items: center; gap: 10px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; color: #555; }
+        input[type="text"], input[type="password"] { width: 100%; padding: 12px; margin-bottom: 20px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
+        input:focus { border-color: #3498db; outline: none; }
+        .result-group { margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; }
+        .result-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+        .result-value { font-family: "Monaco", "Consolas", monospace; font-size: 18px; color: #333; background: #f8f9fa; padding: 10px; border-radius: 6px; border: 1px solid #e0e0e0; word-break: break-all; }
+        .note { font-size: 12px; color: #666; margin-top: 30px; line-height: 1.6; background: #fff3cd; padding: 15px; border-radius: 6px; }
+        .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #999; line-height: 1.8; }
+        .footer a { color: #3498db; text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+        .footer .section { margin-bottom: 10px; }
+        .footer strong { color: #666; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>🌸 Flower Password</h1>
+
+    <label for="password">记忆密码 (Master Password)</label>
+    <input type="password" id="password" placeholder="输入你的记忆密码" oninput="calculate()">
+
+    <label for="key">区分代号 (Key)</label>
+    <input type="text" id="key" placeholder="例如 taobao, gmail" oninput="calculate()">
+
+    <div class="result-group">
+        <div class="result-label">16位码（最终密码）</div>
+        <div class="result-value" id="result16"></div>
+    </div>
+
+    <div class="result-group">
+        <div class="result-label">32位完整MD5码（内部源）</div>
+        <div class="result-value" id="result32"></div>
+    </div>
+
+    <div class="note">
+        <strong>🔒 算法说明：</strong><br>
+        此页面实现官方花密算法（xlsdg/flowerpassword.js v5.0）：HMAC-MD5 + "sunlovesnow1990090127xykab" 规则 + 首位字母保护，本地计算无网络传输。
+    </div>
+
+    <div class="footer">
+        <div class="section">
+            <strong>📦 算法来源：</strong><br>
+            • <a href="https://github.com/xlsdg/flowerpassword.js" target="_blank">xlsdg/flowerpassword.js</a> - JavaScript implementation (MIT License)<br>
+            • <a href="https://github.com/blueimp/JavaScript-MD5" target="_blank">blueimp/JavaScript-MD5</a> - MD5/HMAC-MD5 library (MIT License)
+        </div>
+        
+        <div class="section">
+            <strong>🌐 相关资源：</strong><br>
+            • <a href="https://flowerpassword.com" target="_blank">flowerpassword.com</a> - 官方在线版<br>
+            • <a href="https://xlsdg.org/flower-password-windows/" target="_blank">Windows 客户端</a> - 原始 Win10 版本<br>
+            • <a href="https://github.com/xlsdg/flower-password-user-script" target="_blank">浏览器脚本版</a> - Tampermonkey/Greasemonkey<br>
+            • <a href="https://github.com/xlsdg/flowerpassword.rust" target="_blank">Rust 实现</a> - 命令行版本
+        </div>
+        
+        <div class="section">
+            <strong>ℹ️ 使用说明：</strong><br>
+            花密是一种确定性密码生成方案，相同的"记忆密码"和"区分代号"总是生成相同的最终密码。无需存储，只需记住一个主密码即可为所有账户生成独立的强密码。
+        </div>
+        
+        <div class="section" style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee; color: #aaa;">
+            Preserved: 2026-02-02 | Algorithm Version: v5.0.0 | All computation runs locally in your browser
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/blueimp-md5@2.19.0/js/md5.min.js"></script>
+<script>
+function calculate() {
+    const password = document.getElementById('password').value;
+    const key = document.getElementById('key').value;
+    const res16 = document.getElementById('result16');
+    const res32 = document.getElementById('result32');
+
+    if (!password || !key) {
+        res16.innerText = "";
+        res32.innerText = "";
+        return;
+    }
+
+    // Step 1: Base hash (HMAC-MD5)
+    const baseHash = md5(password, key);
+
+    // Step 2: Rule and source hashes with fixed salts
+    const ruleHash = md5(baseHash, 'kise');
+    const sourceHash = md5(baseHash, 'snow');
+
+    // Step 3: Apply uppercase transformation rules
+    const magic = 'sunlovesnow1990090127xykab';
+    let result = '';
+
+    for (let i = 0; i < 32; i++) {
+        let char = sourceHash[i];
+        // If character is a letter AND rule char exists in magic string, uppercase it
+        if (isNaN(+char) && magic.includes(ruleHash[i])) {
+            char = char.toUpperCase();
+        }
+        result += char;
+    }
+
+    // The 32-bit MD5 (before first-letter rule)
+    const md32 = result;
+
+    // Step 4: Apply first-letter rule for final password
+    if (!isNaN(+result[0])) {
+        result = 'K' + result.slice(1);
+    }
+
+    const pass16 = result.slice(0, 16);
+
+    res16.innerText = pass16;
+    res32.innerText = md32;
+}
+</script>
+</body>
+</html>
